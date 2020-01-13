@@ -1,0 +1,30 @@
+{
+  "name": "external-sorting",
+  "version": "0.1.0",
+  "description": "an external sorting algorithm implementation for NodeJS",
+  "main": "dist/external-sorting.js",
+  "repository": "git@github.com:ldubos/external-sorting.git",
+  "keywords": [
+    "sort",
+    "external sorting",
+    "limited ram",
+    "sorting algorithm",
+    "merge sort",
+    "files",
+    "swap",
+    "node",
+    "nodejs"
+  ],
+  "author": "Ludwig DUBOS <ludwig.dubos@gmail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^13.1.7",
+    "@typescript-eslint/eslint-plugin": "^2.16.0",
+    "@typescript-eslint/parser": "^2.16.0",
+    "eslint": "^6.8.0",
+    "eslint-config-airbnb-base": "^14.0.0",
+    "eslint-plugin-import": "^2.20.0",
+    "prettier": "^1.19.1",
+    "typescript": "^3.7.4"
+  }
+}
