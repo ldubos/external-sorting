@@ -2,10 +2,7 @@
 
 <br/>
 <div align="center">
-  <a href="https://github.com/ldubos/external-sorting">
-    <img src="images/logo.png" alt="Logo" width="130px">
-  </a>
-  <h1 style="text-align: center; margin-top: 15px; margin-bottom: 0;border:none;">External Sorting</h1>
+  <h1 style="text-align: center; margin-top: 15px; border:none;">External Sorting</h1>
 </div>
 
 For my work I needed an external sorting algorithm to sort big arrays (for example: sort 32 array of ~300MB with 2GB of RAM at the same time), but I haven't found any resource which talks about this kind of solution for NodeJS, so I've created it, I've decided to share this part of my project with the community and I hope that the community will help me to improve my solution.
