@@ -17,6 +17,14 @@
     "no-plusplus": 0,
     "no-cond-assign": 0,
     "no-continue": 0,
+    "implicit-arrow-linebreak": 0,
+    "no-param-reassign": 0,
+    "lines-between-class-members": 0,
+    "no-constant-condition": 0,
+    "no-bitwise": 0,
+    "operator-linebreak": 0,
+    "no-await-in-loop": 0,
+    "@typescript-eslint/interface-name-prefix": 0,
     "@typescript-eslint/no-explicit-any": 0
   }
 }

@@ -1,5 +1,7 @@
 {
   "tabWidth": 2,
   "singleQuote": true,
-  "parser": "typescript"
+  "parser": "typescript",
+  "arrowParens": "always",
+  "endOfLine": "lf"
 }
