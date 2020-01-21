@@ -3,7 +3,7 @@
 <br/>
 <div align="center">
   <a href="https://github.com/ldubos/external-sorting">
-    <img src="images/logo.svg" alt="Logo" width="130px">
+    <img src="images/logo.png" alt="Logo" width="130px">
   </a>
   <h1 style="text-align: center; margin-top: 15px; margin-bottom: 0;border:none;">External Sorting</h1>
 </div>
