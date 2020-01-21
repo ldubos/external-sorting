@@ -7,16 +7,17 @@
   "keywords": [
     "sort",
     "external sorting",
-    "limited ram",
     "sorting algorithm",
     "merge sort",
     "files",
     "swap",
-    "node",
-    "nodejs"
+    "typescript"
   ],
   "author": "Ludwig DUBOS <ludwig.dubos@gmail.com>",
   "license": "MIT",
+  "scripts": {
+    "build": "rimraf ./dist && tsc"
+  },
   "devDependencies": {
     "@types/node": "^13.1.7",
     "@typescript-eslint/eslint-plugin": "^2.16.0",
@@ -25,6 +26,10 @@
     "eslint-config-airbnb-base": "^14.0.0",
     "eslint-plugin-import": "^2.20.0",
     "prettier": "^1.19.1",
+    "rimraf": "^3.0.0",
     "typescript": "^3.7.4"
+  },
+  "dependencies": {
+    "fast-sort": "^2.0.1"
   }
 }
