@@ -94,8 +94,9 @@ class FileParser {
     const dIndex = this.buffer.indexOf(this.delimiter);
 
     if (dIndex === this.buffer.length - 1) {
+      const temp = this.buffer;
       this.buffer = '';
-      return this.buffer;
+      return temp;
     }
 
     const temp = this.buffer.substring(0, dIndex);
@@ -137,7 +138,7 @@ class FileParser {
 }
 
 interface IMinHeapNode<T> {
-  item: T;
+  item: T | null;
   file: FileParser;
 }
 
@@ -149,8 +150,9 @@ function swap<T>(harr: IMinHeapNode<T>[], a: number, b: number): void {
 
 function comparer<T>(a: T, b: T, order: Order, sortBy?: ISortBy<T>): number {
   const nOrder = order === 'asc' ? -1 : 1;
-  if (a == null) return nOrder;
-  if (b == null) return -nOrder;
+
+  if (a == null) return 1;
+  if (b == null) return -1;
 
   let va: any;
   let vb: any;
@@ -162,6 +164,9 @@ function comparer<T>(a: T, b: T, order: Order, sortBy?: ISortBy<T>): number {
     va = a;
     vb = b;
   }
+
+  if (va == null) return nOrder;
+  if (vb == null) return -nOrder;
 
   if (va < vb) return -1;
   if (va === vb) return 0;
@@ -224,6 +229,26 @@ async function mergeSortedFiles<O extends NodeJS.WritableStream, T>(
   sortBy: ISortBy<T>
 ): Promise<void> {
   const flen = filesPath.length;
+
+  if (flen === 1) {
+    const rs = fs.createReadStream(filesPath[0]);
+
+    await new Promise((resolve, reject) => {
+      rs.on('error', reject);
+
+      rs.on('data', (chunk) => {
+        output.write(chunk);
+      });
+
+      rs.on('end', () => {
+        output.end();
+        resolve();
+      });
+    });
+
+    return;
+  }
+
   const harr: IMinHeapNode<T>[] = [];
   const files: FileParser[] = filesPath.map(
     (file) => new FileParser(file, delimiter)
@@ -243,13 +268,17 @@ async function mergeSortedFiles<O extends NodeJS.WritableStream, T>(
 
     output.write(`${serializer(first.item)}${delimiter}`);
 
+    const chunk = await first.file.gnc();
+
     harr[0] = {
-      item: deserializer(await first.file.gnc()),
+      item: chunk != null ? deserializer(chunk) : null,
       file: first.file
     };
 
     heapify(harr, 0, harr.length, order, sortBy);
   }
+
+  output.end();
 }
 
 async function externalSort<I extends Readable, O extends Writable, T>(
