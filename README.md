@@ -73,7 +73,7 @@ await esort({
 
 ## TODO
 
-- [ ] add unit tests (WIP)
+- [x] add unit tests
 - [ ] add benchmark
 - [ ] support `.by` of fast-sort
 - [ ] add ability to sort by multi properties
