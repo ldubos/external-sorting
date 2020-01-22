@@ -127,7 +127,7 @@ describe('sort', () => {
 
   afterAll((done) => {
     rimraf(tempDir, done);
-  })
+  });
 
   it('Should sort flat 10 int array in asc order with default options', async () => {
     await esort({
@@ -228,5 +228,26 @@ describe('sort', () => {
     output.pop();
 
     expect(output).toEqual(flat100int.sort((a: number, b: number) => a - b));
+  });
+
+  it('Should sort flat 100 int array in desc order with 10 heapSize', async () => {
+    await esort({
+      input: fs.createReadStream(flat100intPath),
+      output: fs.createWriteStream(outputPath),
+      deserializer: (s: string) => parseInt(s, 10),
+      serializer: (n: number) => n.toString(10),
+      maxHeap: 10,
+      tempDir
+    }).desc();
+
+    const output = (await fsp.readFile(outputPath))
+      .toString()
+      .split('\n')
+      .map((s: string) => parseInt(s, 10));
+
+    // remove NaN
+    output.pop();
+
+    expect(output).toEqual(flat100int.sort((a: number, b: number) => b - a));
   });
 });

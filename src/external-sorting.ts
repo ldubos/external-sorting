@@ -137,8 +137,10 @@ class FileParser {
   }
 }
 
+const EOF = Symbol('EOF');
+
 interface IMinHeapNode<T> {
-  item: T | null;
+  item: T | typeof EOF;
   file: FileParser;
 }
 
@@ -148,11 +150,16 @@ function swap<T>(harr: IMinHeapNode<T>[], a: number, b: number): void {
   harr[b] = temp;
 }
 
-function comparer<T>(a: T, b: T, order: Order, sortBy?: ISortBy<T>): number {
-  const nOrder = order === 'asc' ? -1 : 1;
+function comparer<T>(
+  a: T | typeof EOF,
+  b: T | typeof EOF,
+  order: Order,
+  sortBy?: ISortBy<T>
+): number {
+  const nOrder = order === 'asc' ? 1 : -1;
 
-  if (a == null) return 1;
-  if (b == null) return -1;
+  if (a === EOF) return 1;
+  if (b === EOF) return -1;
 
   let va: any;
   let vb: any;
@@ -168,10 +175,10 @@ function comparer<T>(a: T, b: T, order: Order, sortBy?: ISortBy<T>): number {
   if (va == null) return nOrder;
   if (vb == null) return -nOrder;
 
-  if (va < vb) return -1;
+  if (va < vb) return -nOrder;
   if (va === vb) return 0;
 
-  return 1;
+  return nOrder;
 }
 
 function heapify<T>(
@@ -187,7 +194,7 @@ function heapify<T>(
 
   if (
     l < heapSize &&
-    comparer(harr[l].item, harr[i].item, order, sortBy) === -1
+    comparer(harr[l].item, harr[first].item, order, sortBy) === -1
   ) {
     first = l;
   }
@@ -231,17 +238,19 @@ async function mergeSortedFiles<O extends NodeJS.WritableStream, T>(
   const flen = filesPath.length;
 
   if (flen === 1) {
-    const rs = fs.createReadStream(filesPath[0]);
-
     await new Promise((resolve, reject) => {
-      rs.on('error', reject);
+      const rs = fs.createReadStream(filesPath[0]);
 
-      rs.on('data', (chunk) => {
-        output.write(chunk);
+      rs.on('open', () => {
+        rs.pipe(output);
+      });
+
+      rs.on('error', (err) => {
+        output.end();
+        reject(err);
       });
 
       rs.on('end', () => {
-        output.end();
         resolve();
       });
     });
@@ -264,14 +273,14 @@ async function mergeSortedFiles<O extends NodeJS.WritableStream, T>(
   while (true) {
     const first = harr[0];
 
-    if (!first || !first.item) break;
+    if (!first || first.item === EOF) break;
 
     output.write(`${serializer(first.item)}${delimiter}`);
 
     const chunk = await first.file.gnc();
 
     harr[0] = {
-      item: chunk != null ? deserializer(chunk) : null,
+      item: chunk !== null ? deserializer(chunk) : EOF,
       file: first.file
     };
 
