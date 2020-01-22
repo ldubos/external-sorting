@@ -12,6 +12,3 @@ node_modules/
 
 # tests
 test/.tmp/
-
-# build
-dist/
