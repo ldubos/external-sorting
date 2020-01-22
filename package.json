@@ -16,6 +16,7 @@
   "author": "Ludwig DUBOS <ludwig.dubos@gmail.com>",
   "license": "MIT",
   "scripts": {
+    "prepublish": "npm run build",
     "build": "rimraf ./dist && tsc",
     "test": "jest --detectOpenHandles --forceExit --runInBand"
   },
