@@ -53,7 +53,7 @@ function initialRun<I extends Readable, T>(
       if (dIndex === -1) return;
 
       if (dIndex === sBuffer.length - 1) {
-        pushTBuffer(deserializer(sBuffer));
+        pushTBuffer(deserializer(sBuffer.substring(0, dIndex)));
         sBuffer = '';
         return;
       }
@@ -67,7 +67,11 @@ function initialRun<I extends Readable, T>(
 
     input.on('end', () => {
       if (sBuffer.length > 0 && sBuffer !== delimiter) {
-        pushTBuffer(deserializer(sBuffer));
+        const dIndex = sBuffer.indexOf(delimiter);
+
+        if (dIndex !== -1) {
+          pushTBuffer(deserializer(sBuffer.substring(0, dIndex)));
+        }
       }
 
       if (tBuffer.length > 0) writeTBuffer();
