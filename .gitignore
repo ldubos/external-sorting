@@ -10,5 +10,8 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 .yarn-integrity
 node_modules/
 
+# tests
+test/.tmp/
+
 # build
 dist/
