@@ -1,4 +1,4 @@
-[![Contributors][contributors-shield]][contributors-url] [![Forks][forks-shield]][forks-url] [![Stargazers][stars-shield]][stars-url] [![Issues][issues-shield]][issues-url] [![MIT License][license-shield]][license-url]
+[![Stargazers][stars-shield]][stars-url] [![Downloads][downloads-shield]][downloads-url] [![Issues][issues-shield]][issues-url] [![Vulnerabilities][vulnerabilities-shield]][vulnerabilities-url] [![MIT License][license-shield]][license-url]
 
 <br/>
 <div align="center">
@@ -87,10 +87,10 @@ Thanks to [@snovakovic](https://github.com/snovakovic) for the fast-sort package
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
 
-[contributors-shield]: https://img.shields.io/github/contributors/ldubos/external-sorting.svg?style=flat-square
-[contributors-url]: https://github.com/ldubos/external-sorting/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/ldubos/external-sorting.svg?style=flat-square
-[forks-url]: https://github.com/ldubos/external-sorting/network/members
+[downloads-shield]: https://img.shields.io/npm/dt/external-sorting.svg?style=flat-square
+[downloads-url]: https://www.npmjs.com/package/external-sorting
+[vulnerabilities-shield]: https://snyk.io/test/github/ldubos/external-sorting/badge.svg?targetFile=package.json&style=flat-square
+[vulnerabilities-url]: https://snyk.io/test/github/ldubos/external-sorting?targetFile=package.json
 [stars-shield]: https://img.shields.io/github/stars/ldubos/external-sorting.svg?style=flat-square
 [stars-url]: https://github.com/ldubos/external-sorting/stargazers
 [issues-shield]: https://img.shields.io/github/issues/ldubos/external-sorting.svg?style=flat-square
