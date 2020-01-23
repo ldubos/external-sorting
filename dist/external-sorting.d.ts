@@ -19,6 +19,7 @@ export interface ISortOptions<I extends Readable, O extends Writable, T> {
     deserializer?: IDeserializer<T>;
     serializer?: ISerializer<T>;
     delimiter?: string;
+    lastDelimiter?: boolean;
     maxHeap?: number;
 }
 declare function createSortInstance<I extends Readable, O extends Writable, T>(opts: ISortOptions<I, O, T>): ISortInstance<T>;

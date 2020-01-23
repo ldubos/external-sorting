@@ -9,6 +9,7 @@ function initialRun<I extends Readable, T>(
   deserializer: IDeserializer<T>,
   serializer: ISerializer<T>,
   delimiter: string,
+  lastDelimiter: boolean,
   maxHeap: number,
   order: Order,
   sortBy: ISortBy<T>
@@ -66,11 +67,15 @@ function initialRun<I extends Readable, T>(
     });
 
     input.on('end', () => {
-      if (sBuffer.length > 0 && sBuffer !== delimiter) {
-        const dIndex = sBuffer.indexOf(delimiter);
+      if (sBuffer.length > 0) {
+        if (!lastDelimiter) {
+          pushTBuffer(deserializer(sBuffer));
+        } else {
+          const dIndex = sBuffer.indexOf(delimiter);
 
-        if (dIndex !== -1) {
-          pushTBuffer(deserializer(sBuffer.substring(0, dIndex)));
+          if (dIndex !== -1) {
+            pushTBuffer(deserializer(sBuffer.substring(0, dIndex)));
+          }
         }
       }
 
@@ -98,7 +103,7 @@ class FileParser {
     const dIndex = this.buffer.indexOf(this.delimiter);
 
     if (dIndex === this.buffer.length - 1) {
-      const temp = this.buffer;
+      const temp = this.buffer.substring(0, dIndex);
       this.buffer = '';
       return temp;
     }
@@ -157,13 +162,11 @@ function swap<T>(harr: IMinHeapNode<T>[], a: number, b: number): void {
 function comparer<T>(
   a: T | typeof EOF,
   b: T | typeof EOF,
-  order: Order,
+  order: 1 | -1,
   sortBy?: ISortBy<T>
 ): number {
-  const nOrder = order === 'asc' ? 1 : -1;
-
-  if (a === EOF) return 1;
-  if (b === EOF) return -1;
+  if (a === EOF) return order;
+  if (b === EOF) return -order;
 
   let va: any;
   let vb: any;
@@ -176,20 +179,20 @@ function comparer<T>(
     vb = b;
   }
 
-  if (va == null) return nOrder;
-  if (vb == null) return -nOrder;
+  if (va == null) return order;
+  if (vb == null) return -order;
 
-  if (va < vb) return -nOrder;
+  if (va < vb) return -1;
   if (va === vb) return 0;
 
-  return nOrder;
+  return 1;
 }
 
 function heapify<T>(
   harr: IMinHeapNode<T>[],
   i: number,
   heapSize: number,
-  order: Order,
+  order: -1 | 1,
   sortBy: ISortBy<T>
 ): void {
   const l = 2 * i + 1;
@@ -198,14 +201,14 @@ function heapify<T>(
 
   if (
     l < heapSize &&
-    comparer(harr[l].item, harr[first].item, order, sortBy) === -1
+    comparer(harr[l].item, harr[first].item, order, sortBy) * order === -1
   ) {
     first = l;
   }
 
   if (
     r < heapSize &&
-    comparer(harr[r].item, harr[first].item, order, sortBy) === -1
+    comparer(harr[r].item, harr[first].item, order, sortBy) * order === -1
   ) {
     first = r;
   }
@@ -218,7 +221,7 @@ function heapify<T>(
 
 function constructHeap<T>(
   harr: IMinHeapNode<T>[],
-  order: Order,
+  order: -1 | 1,
   sortBy: ISortBy<T>
 ): void {
   const heapSize = harr.length;
@@ -272,7 +275,9 @@ async function mergeSortedFiles<O extends NodeJS.WritableStream, T>(
     harr.push({ item: deserializer(chunk), file: files[i] });
   }
 
-  constructHeap(harr, order, sortBy);
+  const nOrder = order === 'asc' ? 1 : -1;
+
+  constructHeap(harr, nOrder, sortBy);
 
   while (true) {
     const first = harr[0];
@@ -288,40 +293,35 @@ async function mergeSortedFiles<O extends NodeJS.WritableStream, T>(
       file: first.file
     };
 
-    heapify(harr, 0, harr.length, order, sortBy);
+    heapify(harr, 0, harr.length, nOrder, sortBy);
   }
 
   output.end();
 }
 
 async function externalSort<I extends Readable, O extends Writable, T>(
-  input: I,
-  output: O,
-  tempDir: string,
-  deserializer: IDeserializer<T>,
-  serializer: ISerializer<T>,
-  delimiter: string,
-  maxHeap: number,
+  opts: ISortOptions<I, O, T>,
   order: Order,
   sortBy: ISortBy<T>
 ): Promise<void> {
   const files = await initialRun(
-    input,
-    tempDir,
-    deserializer,
-    serializer,
-    delimiter,
-    maxHeap,
+    opts.input,
+    opts.tempDir,
+    opts.deserializer,
+    opts.serializer,
+    opts.delimiter,
+    opts.lastDelimiter,
+    opts.maxHeap,
     order,
     sortBy
   );
 
   await mergeSortedFiles(
     files,
-    output,
-    deserializer,
-    serializer,
-    delimiter,
+    opts.output,
+    opts.deserializer,
+    opts.serializer,
+    opts.delimiter,
     order,
     sortBy
   );
@@ -351,6 +351,7 @@ export interface ISortOptions<I extends Readable, O extends Writable, T> {
   deserializer?: IDeserializer<T>;
   serializer?: ISerializer<T>;
   delimiter?: string;
+  lastDelimiter?: boolean;
   maxHeap?: number;
 }
 
@@ -365,8 +366,12 @@ function createSortInstance<I extends Readable, O extends Writable, T>(
     opts.serializer = (v): string => (v as any) as string;
   }
 
-  if (typeof opts.delimiter !== 'number') {
+  if (typeof opts.delimiter !== 'string') {
     opts.delimiter = '\n';
+  }
+
+  if (typeof opts.lastDelimiter !== 'boolean') {
+    opts.lastDelimiter = true;
   }
 
   if (typeof opts.maxHeap !== 'number') {
@@ -374,30 +379,8 @@ function createSortInstance<I extends Readable, O extends Writable, T>(
   }
 
   const sortInstance: ISortInstance<T> = {
-    asc: (sortBy?: ISortBy<T>) =>
-      externalSort(
-        opts.input,
-        opts.output,
-        opts.tempDir,
-        opts.deserializer,
-        opts.serializer,
-        opts.delimiter,
-        opts.maxHeap,
-        'asc',
-        sortBy
-      ),
-    desc: (sortBy?: ISortBy<T>) =>
-      externalSort(
-        opts.input,
-        opts.output,
-        opts.tempDir,
-        opts.deserializer,
-        opts.serializer,
-        opts.delimiter,
-        opts.maxHeap,
-        'desc',
-        sortBy
-      )
+    asc: (sortBy?: ISortBy<T>) => externalSort(opts, 'asc', sortBy),
+    desc: (sortBy?: ISortBy<T>) => externalSort(opts, 'desc', sortBy)
   };
 
   return sortInstance;
