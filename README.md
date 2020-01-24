@@ -71,10 +71,33 @@ await esort({
   .catch(console.error);
 ```
 
+## Benchmark
+
+| | Mean [s] | Min [s] | Max [s] | Relative |
+|:---|---:|---:|---:|---:|
+| sort 500,000 `string` | 2.637 ± 0.048 | 2.570 | 2.714 | 1.00 |
+| sort 500,000 `number` | 3.691 ± 0.259 | 3.442 | 4.234 | 1.40 ± 0.10 |
+| sort 500,000 `object` | 5.039 ± 0.262 | 4.741 | 5.407 | 1.91 ± 0.11 |
+| sort 1,000,000 `string` | 5.887 ± 0.637 | 5.105 | 6.820 | 2.23 ± 0.24 |
+| sort 1,000,000 `number` | 6.978 ± 0.499 | 6.531 | 7.966 | 2.65 ± 0.20 |
+| sort 1,000,000 `object` | 9.665 ± 0.111 | 9.522 | 9.791 | 3.66 ± 0.08 |
+
+```
+Model Name: MacBook Pro
+Model ID: MacBookPro14.3
+Processor Name: Quad-Core Intel Core i7
+Processor speed: 2.8 GHz
+Number of processors: 1
+Total number of cores: 4
+Level 2 cache (per core): 256 KB
+Level 3 cache: 6 MB
+Hyper-Threading Technology: Enabled
+Memory: 16 GB
+SSD: Apple SM0512L
+```
+
 ## TODO
 
-- [x] add unit tests
-- [ ] add benchmark
 - [ ] support `.by` of fast-sort
 - [ ] add ability to sort by multi properties
 - [ ] add a better docs
