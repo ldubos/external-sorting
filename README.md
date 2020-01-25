@@ -100,7 +100,6 @@ SSD: Apple SM0512L
 
 - [ ] support `.by` of fast-sort
 - [ ] add ability to sort by multi properties
-- [ ] add a better docs
 
 ## Credits
 

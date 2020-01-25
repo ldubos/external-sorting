@@ -12,6 +12,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const fast_sort_1 = __importDefault(require("fast-sort"));
 const fs_1 = __importStar(require("fs"));
+const os_1 = __importDefault(require("os"));
 const path_1 = __importDefault(require("path"));
 function initialRun(input, tempDir, deserializer, serializer, delimiter, lastDelimiter, maxHeap, order, sortBy) {
     return new Promise((resolve, reject) => {
@@ -209,10 +210,66 @@ async function mergeSortedFiles(filesPath, output, deserializer, serializer, del
     output.end();
 }
 async function externalSort(opts, order, sortBy) {
+    if (typeof opts.tempDir !== 'string') {
+        opts.tempDir = path_1.default.resolve(os_1.default.tmpdir(), await fs_1.promises.mkdtemp('external-sorting'));
+    }
     const files = await initialRun(opts.input, opts.tempDir, opts.deserializer, opts.serializer, opts.delimiter, opts.lastDelimiter, opts.maxHeap, order, sortBy);
     await mergeSortedFiles(files, opts.output, opts.deserializer, opts.serializer, opts.delimiter, order, sortBy);
     await Promise.all(files.map((file) => fs_1.promises.unlink(file)));
 }
+/**
+ * Create new instance of external-sorting.
+ * @example
+ * import fs from 'fs';
+ * import esort from 'external-sorting';
+ *
+ * esort({
+ *   input: fs.createReadStream('input_file'),
+ *   output: fs.createWriteStream('output_file'),
+ *   tempDir: __dirname,
+ *   maxHeap: 1000
+ * })
+ *   .asc()
+ *   .then(() => {
+ *     console.log('done');
+ *   })
+ *   .catch(console.error);
+ * @example
+ * import fs from 'fs';
+ * import esort from 'external-sorting';
+ *
+ * esort({
+ *   input: fs.createReadStream('input_file'),
+ *   output: fs.createWriteStream('output_file'),
+ *   deserializer: parseFloat,
+ *   serializer: (v: number) => v.toString(10),
+ *   tempDir: __dirname,
+ *   maxHeap: 1000
+ * })
+ *   .asc()
+ *   .then(() => {
+ *     console.log('done');
+ *   })
+ *   .catch(console.error);
+ * @example
+ * import fs from 'fs';
+ * import esort from 'external-sorting';
+ *
+ * esort({
+ *   input: fs.createReadStream('input_file'),
+ *   output: fs.createWriteStream('output_file'),
+ *   deserializer: JSON.parse,
+ *   serializer: JSON.stringify,
+ *   delimiter: '\r\n',
+ *   tempDir: __dirname,
+ *   maxHeap: 500
+ * })
+ *   .asc((obj) => obj.a.b.c)
+ *   .then(() => {
+ *     console.log('done');
+ *   })
+ *   .catch(console.error);
+ */
 function createSortInstance(opts) {
     if (typeof opts.deserializer !== 'function') {
         opts.deserializer = (s) => s;
