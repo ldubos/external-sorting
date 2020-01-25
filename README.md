@@ -1,4 +1,4 @@
-[![Stargazers][stars-shield]][stars-url] [![Downloads][downloads-shield]][downloads-url] [![Issues][issues-shield]][issues-url] [![Vulnerabilities][vulnerabilities-shield]][vulnerabilities-url] [![MIT License][license-shield]][license-url][![Contributor Covenant][code-of-conduct-shield]][code-of-conduct-url]
+[![Stargazers][stars-shield]][stars-url] [![Downloads][downloads-shield]][downloads-url] [![Issues][issues-shield]][issues-url] [![Vulnerabilities][vulnerabilities-shield]][vulnerabilities-url] [![MIT License][license-shield]][license-url] [![Contributor Covenant][code-of-conduct-shield]][code-of-conduct-url]
 
 <br/>
 <div align="center">
@@ -119,5 +119,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 [issues-url]: https://github.com/ldubos/external-sorting/issues
 [license-shield]: https://img.shields.io/github/license/ldubos/external-sorting.svg?style=flat-square
 [license-url]: https://github.com/ldubos/external-sorting/blob/master/LICENSE
-[code-of-conduct-shield]: https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg
+[code-of-conduct-shield]: https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg?style=flat-square
 [code-of-conduct-url]: CODE_OF_CONDUCT.md
