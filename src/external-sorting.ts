@@ -55,14 +55,14 @@ function initialRun<I extends Readable, T>(
       if (dIndex === -1) return;
 
       if (dIndex === sBuffer.length - 1) {
-        pushTBuffer(deserializer(sBuffer.substring(0, dIndex)));
+        pushTBuffer(deserializer(sBuffer.slice(0, dIndex)));
         sBuffer = '';
         return;
       }
 
       do {
-        pushTBuffer(deserializer(sBuffer.substring(0, dIndex)));
-        sBuffer = sBuffer.substring(dIndex + 1);
+        pushTBuffer(deserializer(sBuffer.slice(0, dIndex)));
+        sBuffer = sBuffer.slice(dIndex + 1);
         dIndex = sBuffer.indexOf(delimiter);
       } while (dIndex < sBuffer.length - 1 && dIndex !== -1);
     });
@@ -75,7 +75,7 @@ function initialRun<I extends Readable, T>(
           const dIndex = sBuffer.indexOf(delimiter);
 
           if (dIndex !== -1) {
-            pushTBuffer(deserializer(sBuffer.substring(0, dIndex)));
+            pushTBuffer(deserializer(sBuffer.slice(0, dIndex)));
           }
         }
       }
@@ -89,35 +89,39 @@ function initialRun<I extends Readable, T>(
   });
 }
 
-class FileParser {
+const EOF = Symbol('EOF');
+
+class FileParser<T> {
   private buffer = '';
   private bytesRead = 0;
   private file: string;
   private delimiter: string;
+  private deserialzer: IDeserializer<T>;
 
-  constructor(file: string, delimiter: string) {
+  constructor(file: string, delimiter: string, deserialzer: IDeserializer<T>) {
     this.file = file;
     this.delimiter = delimiter;
+    this.deserialzer = deserialzer;
   }
 
   private checkBuffer(): string {
     const dIndex = this.buffer.indexOf(this.delimiter);
 
     if (dIndex === this.buffer.length - 1) {
-      const temp = this.buffer.substring(0, dIndex);
+      const temp = this.buffer.slice(0, dIndex);
       this.buffer = '';
       return temp;
     }
 
-    const temp = this.buffer.substring(0, dIndex);
-    this.buffer = this.buffer.substring(dIndex + 1);
+    const temp = this.buffer.slice(0, dIndex);
+    this.buffer = this.buffer.slice(dIndex + 1);
 
     return temp;
   }
 
-  async gnc(): Promise<string> {
+  async gnc(): Promise<T | typeof EOF> {
     if (this.buffer.length > 0 && this.buffer.indexOf(this.delimiter) !== -1) {
-      return this.checkBuffer();
+      return this.deserialzer(this.checkBuffer());
     }
 
     const fh = await fsp.open(this.file, 'r');
@@ -138,20 +142,18 @@ class FileParser {
       if (dIndex === -1) continue;
 
       fh.close();
-      return this.checkBuffer();
+      return this.deserialzer(this.checkBuffer());
     }
 
     fh.close();
 
-    return null;
+    return EOF;
   }
 }
 
-const EOF = Symbol('EOF');
-
 interface IMinHeapNode<T> {
   item: T | typeof EOF;
-  file: FileParser;
+  file: FileParser<T>;
 }
 
 function swap<T>(harr: IMinHeapNode<T>[], a: number, b: number): void {
@@ -160,78 +162,71 @@ function swap<T>(harr: IMinHeapNode<T>[], a: number, b: number): void {
   harr[b] = temp;
 }
 
-function comparer<T>(
-  a: T | typeof EOF,
-  b: T | typeof EOF,
-  order: 1 | -1,
-  sortBy?: ISortBy<T>
-): number {
-  if (a === EOF) return order;
-  if (b === EOF) return -order;
+interface IComparer<T> {
+  (a: T | typeof EOF, b: T | typeof EOF): number;
+}
 
-  let va: any;
-  let vb: any;
+function defaultComparer<T>(a: T, b: T, order: number): number {
+  if (a == null) return order;
+  if (b == null) return -order;
 
-  if (typeof sortBy === 'function') {
-    va = sortBy(a);
-    vb = sortBy(b);
-  } else {
-    va = a;
-    vb = b;
-  }
-
-  if (va == null) return order;
-  if (vb == null) return -order;
-
-  if (va < vb) return -1;
-  if (va === vb) return 0;
+  if (a < b) return -1;
+  if (a === b) return 0;
 
   return 1;
+}
+
+function getComparer<T>(sortBy: ISortBy<T>, order: number): IComparer<T> {
+  if (typeof sortBy === 'function') {
+    return (a: T | typeof EOF, b: T | typeof EOF): number => {
+      if (a === EOF) return order * order;
+      if (b === EOF) return -order * order;
+
+      return defaultComparer(sortBy(a), sortBy(b), order) * order;
+    };
+  }
+
+  return (a: T | typeof EOF, b: T | typeof EOF): number => {
+    if (a === EOF) return order * order;
+    if (b === EOF) return -order * order;
+
+    return defaultComparer(a, b, order) * order;
+  };
 }
 
 function heapify<T>(
   harr: IMinHeapNode<T>[],
   i: number,
   heapSize: number,
-  order: -1 | 1,
-  sortBy: ISortBy<T>
+  comparer: IComparer<T>
 ): void {
-  const l = 2 * i + 1;
-  const r = 2 * i + 2;
+  const t = i << 1;
+  const l = t + 1;
+  const r = t + 2;
   let first = i;
 
-  if (
-    l < heapSize &&
-    comparer(harr[l].item, harr[first].item, order, sortBy) * order === -1
-  ) {
+  if (l < heapSize && comparer(harr[l].item, harr[first].item) === -1) {
     first = l;
   }
 
-  if (
-    r < heapSize &&
-    comparer(harr[r].item, harr[first].item, order, sortBy) * order === -1
-  ) {
+  if (r < heapSize && comparer(harr[r].item, harr[first].item) === -1) {
     first = r;
   }
 
   if (first !== i) {
     swap(harr, i, first);
-    heapify(harr, first, heapSize, order, sortBy);
+    heapify(harr, first, heapSize, comparer);
   }
 }
 
 function constructHeap<T>(
   harr: IMinHeapNode<T>[],
-  order: -1 | 1,
-  sortBy: ISortBy<T>
+  comparer: IComparer<T>
 ): void {
   const heapSize = harr.length;
-  let i = ~~((heapSize - 1) / 2);
+  let i = (heapSize - 1) >> 1;
 
-  while (i >= 0) {
-    heapify(harr, i, heapSize, order, sortBy);
-    i--;
-  }
+  while (i >= 0) heapify(harr, i--, heapSize, comparer);
 }
 
 async function mergeSortedFiles<O extends NodeJS.WritableStream, T>(
@@ -267,18 +262,17 @@ async function mergeSortedFiles<O extends NodeJS.WritableStream, T>(
   }
 
   const harr: IMinHeapNode<T>[] = [];
-  const files: FileParser[] = filesPath.map(
-    (file) => new FileParser(file, delimiter)
+  const files: FileParser<T>[] = filesPath.map(
+    (file) => new FileParser(file, delimiter, deserializer)
   );
 
   for (let i = 0; i < flen; i++) {
-    const chunk = await files[i].gnc();
-    harr.push({ item: deserializer(chunk), file: files[i] });
+    harr.push({ item: await files[i].gnc(), file: files[i] });
   }
 
-  const nOrder = order === 'asc' ? 1 : -1;
+  const comparer = getComparer(sortBy, order === 'asc' ? 1 : -1);
 
-  constructHeap(harr, nOrder, sortBy);
+  constructHeap(harr, comparer);
 
   while (true) {
     const first = harr[0];
@@ -287,14 +281,12 @@ async function mergeSortedFiles<O extends NodeJS.WritableStream, T>(
 
     output.write(`${serializer(first.item)}${delimiter}`);
 
-    const chunk = await first.file.gnc();
-
     harr[0] = {
-      item: chunk !== null ? deserializer(chunk) : EOF,
+      item: await first.file.gnc(),
       file: first.file
     };
 
-    heapify(harr, 0, harr.length, nOrder, sortBy);
+    heapify(harr, 0, harr.length, comparer);
   }
 
   output.end();
