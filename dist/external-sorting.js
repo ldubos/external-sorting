@@ -132,6 +132,23 @@ function defaultComparer(a, b, order) {
     return 1;
 }
 function getComparer(sortBy, order) {
+    if (Array.isArray(sortBy)) {
+        const comparers = [];
+        for (let i = 0; i < sortBy.length; i++) {
+            comparers.push(getComparer(sortBy[i], order));
+        }
+        const cLen = comparers.length;
+        return (a, b) => {
+            if (a === EOF)
+                return order * order;
+            if (b === EOF)
+                return -order * order;
+            let v;
+            for (let i = 0; i < cLen && (v = comparers[i](a, b)) === 0; i++)
+                ;
+            return v;
+        };
+    }
     if (typeof sortBy === 'function') {
         return (a, b) => {
             if (a === EOF)
@@ -139,6 +156,15 @@ function getComparer(sortBy, order) {
             if (b === EOF)
                 return -order * order;
             return defaultComparer(sortBy(a), sortBy(b), order) * order;
+        };
+    }
+    if (typeof sortBy === 'string') {
+        return (a, b) => {
+            if (a === EOF)
+                return order * order;
+            if (b === EOF)
+                return -order * order;
+            return defaultComparer(a[sortBy], b[sortBy], order) * order;
         };
     }
     return (a, b) => {
@@ -154,10 +180,10 @@ function heapify(harr, i, heapSize, comparer) {
     const l = t + 1;
     const r = t + 2;
     let first = i;
-    if (l < heapSize && comparer(harr[l].item, harr[first].item) === -1) {
+    if (l < heapSize && comparer(harr[l].item, harr[first].item) < 0) {
         first = l;
     }
-    if (r < heapSize && comparer(harr[r].item, harr[first].item) === -1) {
+    if (r < heapSize && comparer(harr[r].item, harr[first].item) < 0) {
         first = r;
     }
     if (first !== i) {

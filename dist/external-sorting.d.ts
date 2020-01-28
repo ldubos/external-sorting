@@ -9,8 +9,8 @@ export interface ISerializer<T> {
 }
 export declare type Order = keyof ISortInstance<unknown>;
 export interface ISortInstance<T> {
-    asc(sortBy?: ISortBy<T>): Promise<void>;
-    desc(sortBy?: ISortBy<T>): Promise<void>;
+    asc(sortBy?: ISortBy<T> | ISortBy<T>[]): Promise<void>;
+    desc(sortBy?: ISortBy<T> | ISortBy<T>[]): Promise<void>;
 }
 export interface ISortOptions<I extends Readable, O extends Writable, T> {
     /** input stream */
