@@ -71,6 +71,31 @@ await esort({
   .catch(console.error);
 ```
 
+*asc* sort of objects by properties `a`, `b.c` and `d` separate with `\n`
+
+```typescript
+import fs from 'fs';
+import esort from 'external-sorting';
+
+await esort({
+  input: fs.createReadStream('input_file'),
+  output: fs.createWriteStream('output_file'),
+  tempDir: __dirname,
+  deserializer: JSON.parse,
+  serializer: JSON.stringify,
+  maxHeap: 100
+})
+  .asc([
+    (obj) => obj.a,
+    (obj) => obj.b.c,
+    (obj) => obj.d
+  ])
+  .then(() => {
+    console.log('done');
+  })
+  .catch(console.error);
+```
+
 ## Benchmark
 
 | | Mean [s] | Min [s] | Max [s] | Relative |
@@ -99,7 +124,6 @@ SSD: Apple SM0512L
 ## TODO
 
 - [ ] support `.by` of fast-sort
-- [ ] add ability to sort by multi properties
 
 ## Credits
 

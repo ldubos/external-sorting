@@ -1,10 +1,11 @@
 /* eslint-disable */
+import fsort from 'fast-sort';
 import fs, { promises as fsp } from 'fs';
 import path from 'path';
 import rimraf from 'rimraf';
 
-import { file2array } from './helpers';
 import esort from '../src/external-sorting';
+import { file2array } from './helpers';
 
 interface IFriend {
   id: number;
@@ -73,23 +74,6 @@ describe('sort', () => {
   };
   const flat100object = file2array(flat100objectPath, objectParser);
 
-  function comparer<T>(order: number, by?: (v: any) => T) {
-    return (a: any, b: any): number => {
-      if (a == null) return order * order;
-      if (b == null) return -order * order;
-
-      if (typeof by === 'function') {
-        a = by(a);
-        b = by(b);
-      }
-
-      if (a < b) return -1 * order;
-      if (a === b) return 0 * order;
-
-      return 1 * order;
-    };
-  }
-
   beforeEach((done) => {
     rimraf(tempDir, (err1) => {
       if (err1) return done(err1);
@@ -113,9 +97,7 @@ describe('sort', () => {
       tempDir
     }).asc();
 
-    expect(file2array(outputPath, intParser)).toEqual(
-      flat10int.sort(comparer(1))
-    );
+    expect(file2array(outputPath, intParser)).toEqual(fsort(flat10int).asc());
   });
 
   it('Should sort flat 10 int array in desc order with default options', async () => {
@@ -127,9 +109,7 @@ describe('sort', () => {
       tempDir
     }).desc();
 
-    expect(file2array(outputPath, intParser)).toEqual(
-      flat10int.sort(comparer(-1))
-    );
+    expect(file2array(outputPath, intParser)).toEqual(fsort(flat10int).desc());
   });
 
   it('Should sort flat 10 int array in asc order with custom delimiter', async () => {
@@ -143,7 +123,7 @@ describe('sort', () => {
     }).asc();
 
     expect(file2array(outputPath, intParser, ',')).toEqual(
-      flat10int.sort(comparer(1))
+      fsort(flat10int).asc()
     );
   });
 
@@ -159,7 +139,7 @@ describe('sort', () => {
     }).asc();
 
     expect(file2array(outputPath, intParser, ',')).toEqual(
-      flat10int.sort(comparer(1))
+      fsort(flat10int).asc()
     );
   });
 
@@ -178,7 +158,7 @@ describe('sort', () => {
     }).asc();
 
     expect(file2array(outputPath, intParser, ',')).toEqual(
-      flat10int.sort(comparer(1))
+      fsort(flat10int).asc()
     );
   });
 
@@ -197,7 +177,7 @@ describe('sort', () => {
     }).asc();
 
     expect(file2array(outputPath, intParser, ',')).toEqual(
-      flat10int.sort(comparer(1))
+      fsort(flat10int).asc()
     );
   });
 
@@ -210,9 +190,7 @@ describe('sort', () => {
       tempDir
     }).asc();
 
-    expect(file2array(outputPath, intParser)).toEqual(
-      flat100int.sort(comparer(1))
-    );
+    expect(file2array(outputPath, intParser)).toEqual(fsort(flat100int).asc());
   });
 
   it('Should sort flat 100 int array in desc order with default options', async () => {
@@ -224,9 +202,7 @@ describe('sort', () => {
       tempDir
     }).desc();
 
-    expect(file2array(outputPath, intParser)).toEqual(
-      flat100int.sort(comparer(-1))
-    );
+    expect(file2array(outputPath, intParser)).toEqual(fsort(flat100int).desc());
   });
 
   it('Should sort flat 100 int array in asc order with 10 heapSize', async () => {
@@ -239,9 +215,7 @@ describe('sort', () => {
       tempDir
     }).asc();
 
-    expect(file2array(outputPath, intParser)).toEqual(
-      flat100int.sort(comparer(1))
-    );
+    expect(file2array(outputPath, intParser)).toEqual(fsort(flat100int).asc());
   });
 
   it('Should sort flat 100 int array in desc order with 10 heapSize', async () => {
@@ -254,9 +228,7 @@ describe('sort', () => {
       tempDir
     }).desc();
 
-    expect(file2array(outputPath, intParser)).toEqual(
-      flat100int.sort(comparer(-1))
-    );
+    expect(file2array(outputPath, intParser)).toEqual(fsort(flat100int).desc());
   });
 
   it('Should sort flat 100 string array in asc order with default options', async () => {
@@ -267,7 +239,7 @@ describe('sort', () => {
     }).asc();
 
     expect(file2array(outputPath, stringParser)).toEqual(
-      flat100string.sort(comparer(1))
+      fsort(flat100string).asc()
     );
   });
 
@@ -279,7 +251,7 @@ describe('sort', () => {
     }).desc();
 
     expect(file2array(outputPath, stringParser)).toEqual(
-      flat100string.sort(comparer(-1))
+      fsort(flat100string).desc()
     );
   });
 
@@ -292,7 +264,7 @@ describe('sort', () => {
     }).asc();
 
     expect(file2array(outputPath, stringParser)).toEqual(
-      flat100string.sort(comparer(1))
+      fsort(flat100string).asc()
     );
   });
 
@@ -305,7 +277,7 @@ describe('sort', () => {
     }).desc();
 
     expect(file2array(outputPath, stringParser)).toEqual(
-      flat100string.sort(comparer(-1))
+      fsort(flat100string).desc()
     );
   });
 
@@ -319,7 +291,7 @@ describe('sort', () => {
     }).asc((v: ITestObject) => (v ? v.index : null));
 
     expect(file2array(outputPath, objectParser)).toEqual(
-      flat100object.sort(comparer(1, v => v.index))
+      fsort(flat100object).asc((v) => (v ? v.index : null))
     );
   });
 
@@ -333,7 +305,7 @@ describe('sort', () => {
     }).desc((v: ITestObject) => (v ? v.index : null));
 
     expect(file2array(outputPath, objectParser)).toEqual(
-      flat100object.sort(comparer(-1, v => v.index))
+      fsort(flat100object).desc((v) => (v ? v.index : null))
     );
   });
 
@@ -348,7 +320,7 @@ describe('sort', () => {
     }).asc((v: ITestObject) => (v ? v.index : null));
 
     expect(file2array(outputPath, objectParser)).toEqual(
-      flat100object.sort(comparer(1, v => v.index))
+      fsort(flat100object).asc((v) => (v ? v.index : null))
     );
   });
 
@@ -363,7 +335,109 @@ describe('sort', () => {
     }).desc((v: ITestObject) => (v ? v.index : null));
 
     expect(file2array(outputPath, objectParser)).toEqual(
-      flat100object.sort(comparer(-11, v => v.index))
+      fsort(flat100object).desc((v) => (v ? v.index : null))
+    );
+  });
+
+  it('Should sort 100 object array by multi properties in asc order', async () => {
+    await esort({
+      input: fs.createReadStream(flat100objectPath),
+      output: fs.createWriteStream(outputPath),
+      deserializer: objectParser,
+      serializer: JSON.stringify,
+      tempDir
+    }).asc([
+      (v) => (v ? v.index : null),
+      (v) => (v ? v.name.first : null),
+      (v) => (v ? v.guid : null)
+    ]);
+
+    expect(file2array(outputPath, objectParser)).toEqual(
+      fsort(flat100object).asc([
+        (v) => (v ? v.index : null),
+        (v) => (v ? v.name.first : null),
+        (v) => (v ? v.guid : null)
+      ])
+    );
+  });
+
+  it('Should sort 100 object array by multi properties in asc order with 10 heapSize', async () => {
+    await esort({
+      input: fs.createReadStream(flat100objectPath),
+      output: fs.createWriteStream(outputPath),
+      deserializer: objectParser,
+      serializer: JSON.stringify,
+      maxHeap: 10,
+      tempDir
+    }).asc([
+      (v) => (v ? v.index : null),
+      (v) => (v ? v.name.first : null),
+      (v) => (v ? v.guid : null)
+    ]);
+
+    expect(file2array(outputPath, objectParser)).toEqual(
+      fsort(flat100object).asc([
+        (v) => (v ? v.index : null),
+        (v) => (v ? v.name.first : null),
+        (v) => (v ? v.guid : null)
+      ])
+    );
+  });
+
+  it('Should sort 100 object array by multi properties in desc order', async () => {
+    await esort({
+      input: fs.createReadStream(flat100objectPath),
+      output: fs.createWriteStream(outputPath),
+      deserializer: objectParser,
+      serializer: JSON.stringify,
+      tempDir
+    }).desc([
+      (v) => (v ? v.index : null),
+      (v) => (v ? v.name.first : null),
+      (v) => (v ? v.guid : null)
+    ]);
+
+    expect(file2array(outputPath, objectParser)).toEqual(
+      fsort(flat100object).desc([
+        (v) => (v ? v.index : null),
+        (v) => (v ? v.name.first : null),
+        (v) => (v ? v.guid : null)
+      ])
+    );
+  });
+
+  it('Should sort 100 object array by multi properties in asc order with 10 heapSize', async () => {
+    await esort({
+      input: fs.createReadStream(flat100objectPath),
+      output: fs.createWriteStream(outputPath),
+      deserializer: objectParser,
+      serializer: JSON.stringify,
+      maxHeap: 10,
+      tempDir
+    }).desc([
+      (v) => (v ? v.index : null),
+      (v) => (v ? v.name.first : null),
+      (v) => (v ? v.guid : null)
+    ]);
+
+    fs.writeFileSync(
+      path.resolve(tempDir, 'out2'),
+      fsort(flat100object)
+        .desc([
+          (v) => (v ? v.index : null),
+          (v) => (v ? v.name.first : null),
+          (v) => (v ? v.guid : null)
+        ])
+        .map((v) => JSON.stringify(v) + '\n')
+        .join('')
+    );
+
+    expect(file2array(outputPath, objectParser)).toEqual(
+      fsort(flat100object).desc([
+        (v) => (v ? v.index : null),
+        (v) => (v ? v.name.first : null),
+        (v) => (v ? v.guid : null)
+      ])
     );
   });
 });

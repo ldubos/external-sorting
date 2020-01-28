@@ -13,7 +13,7 @@ function initialRun<I extends Readable, T>(
   lastDelimiter: boolean,
   maxHeap: number,
   order: Order,
-  sortBy: ISortBy<T>
+  sortBy: ISortBy<T> | ISortBy<T>[]
 ): Promise<string[]> {
   return new Promise((resolve, reject) => {
     const files: string[] = [];
@@ -176,13 +176,46 @@ function defaultComparer<T>(a: T, b: T, order: number): number {
   return 1;
 }
 
-function getComparer<T>(sortBy: ISortBy<T>, order: number): IComparer<T> {
+function getComparer<T>(
+  sortBy: ISortBy<T> | ISortBy<T>[],
+  order: number
+): IComparer<T> {
+  if (Array.isArray(sortBy)) {
+    const comparers: IComparer<T>[] = [];
+
+    for (let i = 0; i < sortBy.length; i++) {
+      comparers.push(getComparer(sortBy[i], order));
+    }
+
+    const cLen = comparers.length;
+
+    return (a: T | typeof EOF, b: T | typeof EOF): number => {
+      if (a === EOF) return order * order;
+      if (b === EOF) return -order * order;
+
+      let v: number;
+
+      for (let i = 0; i < cLen && (v = comparers[i](a, b)) === 0; i++);
+
+      return v;
+    };
+  }
+
   if (typeof sortBy === 'function') {
     return (a: T | typeof EOF, b: T | typeof EOF): number => {
       if (a === EOF) return order * order;
       if (b === EOF) return -order * order;
 
       return defaultComparer(sortBy(a), sortBy(b), order) * order;
+    };
+  }
+
+  if (typeof sortBy === 'string') {
+    return (a: T | typeof EOF, b: T | typeof EOF): number => {
+      if (a === EOF) return order * order;
+      if (b === EOF) return -order * order;
+
+      return defaultComparer(a[sortBy], b[sortBy], order) * order;
     };
   }
 
@@ -205,11 +238,11 @@ function heapify<T>(
   const r = t + 2;
   let first = i;
 
-  if (l < heapSize && comparer(harr[l].item, harr[first].item) === -1) {
+  if (l < heapSize && comparer(harr[l].item, harr[first].item) < 0) {
     first = l;
   }
 
-  if (r < heapSize && comparer(harr[r].item, harr[first].item) === -1) {
+  if (r < heapSize && comparer(harr[r].item, harr[first].item) < 0) {
     first = r;
   }
 
@@ -236,7 +269,7 @@ async function mergeSortedFiles<O extends NodeJS.WritableStream, T>(
   serializer: ISerializer<T>,
   delimiter: string,
   order: Order,
-  sortBy: ISortBy<T>
+  sortBy: ISortBy<T> | ISortBy<T>[]
 ): Promise<void> {
   const flen = filesPath.length;
 
@@ -295,7 +328,7 @@ async function mergeSortedFiles<O extends NodeJS.WritableStream, T>(
 async function externalSort<I extends Readable, O extends Writable, T>(
   opts: ISortOptions<I, O, T>,
   order: Order,
-  sortBy: ISortBy<T>
+  sortBy: ISortBy<T> | ISortBy<T>[]
 ): Promise<void> {
   if (typeof opts.tempDir !== 'string') {
     opts.tempDir = path.resolve(
@@ -340,8 +373,8 @@ export interface ISerializer<T> {
 export type Order = keyof ISortInstance<unknown>;
 
 export interface ISortInstance<T> {
-  asc(sortBy?: ISortBy<T>): Promise<void>;
-  desc(sortBy?: ISortBy<T>): Promise<void>;
+  asc(sortBy?: ISortBy<T> | ISortBy<T>[]): Promise<void>;
+  desc(sortBy?: ISortBy<T> | ISortBy<T>[]): Promise<void>;
 }
 
 export interface ISortOptions<I extends Readable, O extends Writable, T> {
@@ -448,8 +481,10 @@ function createSortInstance<I extends Readable, O extends Writable, T>(
   }
 
   const sortInstance: ISortInstance<T> = {
-    asc: (sortBy?: ISortBy<T>) => externalSort(opts, 'asc', sortBy),
-    desc: (sortBy?: ISortBy<T>) => externalSort(opts, 'desc', sortBy)
+    asc: (sortBy?: ISortBy<T> | ISortBy<T>[]) =>
+      externalSort(opts, 'asc', sortBy),
+    desc: (sortBy?: ISortBy<T> | ISortBy<T>[]) =>
+      externalSort(opts, 'desc', sortBy)
   };
 
   return sortInstance;
