@@ -65,6 +65,11 @@ describe('sort', () => {
     'arrays',
     '100_object'
   );
+  const flat100NNobjectPath: string = path.resolve(
+    __dirname,
+    'arrays',
+    '100_object_not_null'
+  );
   const objectParser = (s: string): ITestObject => {
     try {
       return JSON.parse(s);
@@ -73,6 +78,7 @@ describe('sort', () => {
     }
   };
   const flat100object = file2array(flat100objectPath, objectParser);
+  const flat100NNobject = file2array(flat100NNobjectPath, objectParser);
 
   beforeEach((done) => {
     rimraf(tempDir, (err1) => {
@@ -414,30 +420,33 @@ describe('sort', () => {
       serializer: JSON.stringify,
       maxHeap: 10,
       tempDir
-    }).desc([
+    }).asc([
       (v) => (v ? v.index : null),
       (v) => (v ? v.name.first : null),
       (v) => (v ? v.guid : null)
     ]);
 
-    fs.writeFileSync(
-      path.resolve(tempDir, 'out2'),
-      fsort(flat100object)
-        .desc([
-          (v) => (v ? v.index : null),
-          (v) => (v ? v.name.first : null),
-          (v) => (v ? v.guid : null)
-        ])
-        .map((v) => JSON.stringify(v) + '\n')
-        .join('')
-    );
-
     expect(file2array(outputPath, objectParser)).toEqual(
-      fsort(flat100object).desc([
+      fsort(flat100object).asc([
         (v) => (v ? v.index : null),
         (v) => (v ? v.name.first : null),
         (v) => (v ? v.guid : null)
       ])
+    );
+  });
+
+  it('Should sort 100 object array by property string in asc order with 10 heapSize', async () => {
+    await esort({
+      input: fs.createReadStream(flat100NNobjectPath),
+      output: fs.createWriteStream(outputPath),
+      deserializer: objectParser,
+      serializer: JSON.stringify,
+      maxHeap: 10,
+      tempDir
+    }).asc('index');
+
+    expect(file2array(outputPath, objectParser)).toEqual(
+      fsort(flat100NNobject).asc('index')
     );
   });
 });

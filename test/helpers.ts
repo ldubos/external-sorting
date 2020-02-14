@@ -6,13 +6,12 @@ export function file2array<T>(
   deserializer: (s: string) => T,
   separator = '\n'
 ): T[] {
-  const arr = fs
+  const arr: string[] = fs
     .readFileSync(file)
     .toString()
-    .split(separator)
-    .map((s) => deserializer(s));
+    .split(separator);
 
   arr.pop();
 
-  return arr;
+  return arr.map((s) => deserializer(s));
 }
