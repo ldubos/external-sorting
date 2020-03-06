@@ -1,6 +1,9 @@
 /// <reference types="node" />
 import { ISortBy } from 'fast-sort';
 import { Readable, Writable } from 'stream';
+export interface ISortComparer {
+    (a: any, b: any, order: number): number;
+}
 export interface IDeserializer<T> {
     (str: string): T;
 }
@@ -37,6 +40,7 @@ export interface ISortOptions<I extends Readable, O extends Writable, T> {
      * @default 100
      */
     maxHeap?: number;
+    comparer?: ISortComparer;
 }
 /**
  * Create new instance of external-sorting.

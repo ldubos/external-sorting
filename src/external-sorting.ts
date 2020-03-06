@@ -5,6 +5,7 @@ import path from 'path';
 import { Readable, Writable } from 'stream';
 
 function initialRun<I extends Readable, T>(
+  sorter: typeof fsort,
   input: I,
   tempDir: string,
   deserializer: IDeserializer<T>,
@@ -23,7 +24,7 @@ function initialRun<I extends Readable, T>(
     let cWS: fs.WriteStream = null;
 
     const writeTBuffer = (): void => {
-      tBuffer = fsort(tBuffer)[order](sortBy);
+      tBuffer = sorter(tBuffer)[order](sortBy);
 
       cWS = fs.createWriteStream(path.resolve(tempDir, `${fileIndex}.tmp`));
 
@@ -166,6 +167,10 @@ interface IComparer<T> {
   (a: T | typeof EOF, b: T | typeof EOF): number;
 }
 
+export interface ISortComparer {
+  (a: any, b: any, order: number): number;
+}
+
 function defaultComparer<T>(a: T, b: T, order: number): number {
   if (a == null) return order;
   if (b == null) return -order;
@@ -177,6 +182,7 @@ function defaultComparer<T>(a: T, b: T, order: number): number {
 }
 
 function getComparer<T>(
+  comparer: ISortComparer,
   sortBy: ISortBy<T> | ISortBy<T>[],
   order: number
 ): IComparer<T> {
@@ -184,7 +190,7 @@ function getComparer<T>(
     const comparers: IComparer<T>[] = [];
 
     for (let i = 0; i < sortBy.length; i++) {
-      comparers.push(getComparer(sortBy[i], order));
+      comparers.push(getComparer(comparer, sortBy[i], order));
     }
 
     const cLen = comparers.length;
@@ -206,7 +212,7 @@ function getComparer<T>(
       if (a === EOF) return order * order;
       if (b === EOF) return -order * order;
 
-      return defaultComparer(sortBy(a), sortBy(b), order) * order;
+      return comparer(sortBy(a), sortBy(b), order) * order;
     };
   }
 
@@ -215,7 +221,7 @@ function getComparer<T>(
       if (a === EOF) return order * order;
       if (b === EOF) return -order * order;
 
-      return defaultComparer(a[sortBy], b[sortBy], order) * order;
+      return comparer(a[sortBy], b[sortBy], order) * order;
     };
   }
 
@@ -223,7 +229,7 @@ function getComparer<T>(
     if (a === EOF) return order * order;
     if (b === EOF) return -order * order;
 
-    return defaultComparer(a, b, order) * order;
+    return comparer(a, b, order) * order;
   };
 }
 
@@ -263,6 +269,7 @@ function constructHeap<T>(
 }
 
 async function mergeSortedFiles<O extends NodeJS.WritableStream, T>(
+  sortComparer: ISortComparer,
   filesPath: string[],
   output: O,
   deserializer: IDeserializer<T>,
@@ -303,7 +310,7 @@ async function mergeSortedFiles<O extends NodeJS.WritableStream, T>(
     harr.push({ item: await files[i].gnc(), file: files[i] });
   }
 
-  const comparer = getComparer(sortBy, order === 'asc' ? 1 : -1);
+  const comparer = getComparer(sortComparer, sortBy, order === 'asc' ? 1 : -1);
 
   constructHeap(harr, comparer);
 
@@ -338,6 +345,7 @@ async function externalSort<I extends Readable, O extends Writable, T>(
   }
 
   const files = await initialRun(
+    fsort.createNewInstance({ comparer: opts.comparer }) as any,
     opts.input,
     opts.tempDir,
     opts.deserializer,
@@ -350,6 +358,7 @@ async function externalSort<I extends Readable, O extends Writable, T>(
   );
 
   await mergeSortedFiles(
+    opts.comparer,
     files,
     opts.output,
     opts.deserializer,
@@ -402,6 +411,7 @@ export interface ISortOptions<I extends Readable, O extends Writable, T> {
    * @default 100
    */
   maxHeap?: number;
+  comparer?: ISortComparer;
 }
 
 /**
@@ -478,6 +488,10 @@ function createSortInstance<I extends Readable, O extends Writable, T>(
 
   if (typeof opts.maxHeap !== 'number') {
     opts.maxHeap = 100;
+  }
+
+  if (typeof opts.comparer !== 'function') {
+    opts.comparer = defaultComparer as any;
   }
 
   const sortInstance: ISortInstance<T> = {

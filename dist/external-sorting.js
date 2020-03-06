@@ -14,7 +14,7 @@ const fast_sort_1 = __importDefault(require("fast-sort"));
 const fs_1 = __importStar(require("fs"));
 const os_1 = __importDefault(require("os"));
 const path_1 = __importDefault(require("path"));
-function initialRun(input, tempDir, deserializer, serializer, delimiter, lastDelimiter, maxHeap, order, sortBy) {
+function initialRun(sorter, input, tempDir, deserializer, serializer, delimiter, lastDelimiter, maxHeap, order, sortBy) {
     return new Promise((resolve, reject) => {
         const files = [];
         let fileIndex = 0;
@@ -22,7 +22,7 @@ function initialRun(input, tempDir, deserializer, serializer, delimiter, lastDel
         let tBuffer = [];
         let cWS = null;
         const writeTBuffer = () => {
-            tBuffer = fast_sort_1.default(tBuffer)[order](sortBy);
+            tBuffer = sorter(tBuffer)[order](sortBy);
             cWS = fs_1.default.createWriteStream(path_1.default.resolve(tempDir, `${fileIndex}.tmp`));
             let v;
             while ((v = tBuffer.shift()) !== undefined) {
@@ -131,11 +131,11 @@ function defaultComparer(a, b, order) {
         return 0;
     return 1;
 }
-function getComparer(sortBy, order) {
+function getComparer(comparer, sortBy, order) {
     if (Array.isArray(sortBy)) {
         const comparers = [];
         for (let i = 0; i < sortBy.length; i++) {
-            comparers.push(getComparer(sortBy[i], order));
+            comparers.push(getComparer(comparer, sortBy[i], order));
         }
         const cLen = comparers.length;
         return (a, b) => {
@@ -155,7 +155,7 @@ function getComparer(sortBy, order) {
                 return order * order;
             if (b === EOF)
                 return -order * order;
-            return defaultComparer(sortBy(a), sortBy(b), order) * order;
+            return comparer(sortBy(a), sortBy(b), order) * order;
         };
     }
     if (typeof sortBy === 'string') {
@@ -164,7 +164,7 @@ function getComparer(sortBy, order) {
                 return order * order;
             if (b === EOF)
                 return -order * order;
-            return defaultComparer(a[sortBy], b[sortBy], order) * order;
+            return comparer(a[sortBy], b[sortBy], order) * order;
         };
     }
     return (a, b) => {
@@ -172,7 +172,7 @@ function getComparer(sortBy, order) {
             return order * order;
         if (b === EOF)
             return -order * order;
-        return defaultComparer(a, b, order) * order;
+        return comparer(a, b, order) * order;
     };
 }
 function heapify(harr, i, heapSize, comparer) {
@@ -197,7 +197,7 @@ function constructHeap(harr, comparer) {
     while (i >= 0)
         heapify(harr, i--, heapSize, comparer);
 }
-async function mergeSortedFiles(filesPath, output, deserializer, serializer, delimiter, order, sortBy) {
+async function mergeSortedFiles(sortComparer, filesPath, output, deserializer, serializer, delimiter, order, sortBy) {
     const flen = filesPath.length;
     if (flen === 1) {
         await new Promise((resolve, reject) => {
@@ -220,7 +220,7 @@ async function mergeSortedFiles(filesPath, output, deserializer, serializer, del
     for (let i = 0; i < flen; i++) {
         harr.push({ item: await files[i].gnc(), file: files[i] });
     }
-    const comparer = getComparer(sortBy, order === 'asc' ? 1 : -1);
+    const comparer = getComparer(sortComparer, sortBy, order === 'asc' ? 1 : -1);
     constructHeap(harr, comparer);
     while (true) {
         const first = harr[0];
@@ -239,8 +239,8 @@ async function externalSort(opts, order, sortBy) {
     if (typeof opts.tempDir !== 'string') {
         opts.tempDir = path_1.default.resolve(os_1.default.tmpdir(), await fs_1.promises.mkdtemp('external-sorting'));
     }
-    const files = await initialRun(opts.input, opts.tempDir, opts.deserializer, opts.serializer, opts.delimiter, opts.lastDelimiter, opts.maxHeap, order, sortBy);
-    await mergeSortedFiles(files, opts.output, opts.deserializer, opts.serializer, opts.delimiter, order, sortBy);
+    const files = await initialRun(fast_sort_1.default.createNewInstance({ comparer: opts.comparer }), opts.input, opts.tempDir, opts.deserializer, opts.serializer, opts.delimiter, opts.lastDelimiter, opts.maxHeap, order, sortBy);
+    await mergeSortedFiles(opts.comparer, files, opts.output, opts.deserializer, opts.serializer, opts.delimiter, order, sortBy);
     await Promise.all(files.map((file) => fs_1.promises.unlink(file)));
 }
 /**
@@ -311,6 +311,9 @@ function createSortInstance(opts) {
     }
     if (typeof opts.maxHeap !== 'number') {
         opts.maxHeap = 100;
+    }
+    if (typeof opts.comparer !== 'function') {
+        opts.comparer = defaultComparer;
     }
     const sortInstance = {
         asc: (sortBy) => externalSort(opts, 'asc', sortBy),
