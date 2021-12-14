@@ -1,61 +1,73 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
 var __importStar = (this && this.__importStar) || function (mod) {
     if (mod && mod.__esModule) return mod;
     var result = {};
-    if (mod != null) for (var k in mod) if (Object.hasOwnProperty.call(mod, k)) result[k] = mod[k];
-    result["default"] = mod;
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
     return result;
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const fast_sort_1 = __importDefault(require("fast-sort"));
 const fs_1 = __importStar(require("fs"));
 const os_1 = __importDefault(require("os"));
 const path_1 = __importDefault(require("path"));
-function initialRun(sorter, input, tempDir, deserializer, serializer, delimiter, lastDelimiter, maxHeap, order, sortBy) {
-    return new Promise((resolve, reject) => {
-        const files = [];
-        let fileIndex = 0;
-        let sBuffer = '';
-        let tBuffer = [];
-        let cWS = null;
-        const writeTBuffer = () => {
-            tBuffer = sorter(tBuffer)[order](sortBy);
-            cWS = fs_1.default.createWriteStream(path_1.default.resolve(tempDir, `${fileIndex}.tmp`));
-            let v;
-            while ((v = tBuffer.shift()) !== undefined) {
-                cWS.write(`${serializer(v)}${delimiter}`);
-            }
-            cWS.close();
-            files.push(cWS.path.toString());
-            fileIndex++;
-        };
-        const pushTBuffer = (v) => {
-            tBuffer.push(v);
-            if (tBuffer.length === maxHeap)
-                writeTBuffer();
-        };
-        input.on('data', (chunk) => {
-            if (typeof chunk !== 'string')
-                chunk = chunk.toString();
-            sBuffer += chunk;
-            chunk = null;
-            let dIndex = sBuffer.indexOf(delimiter);
-            if (dIndex === -1)
-                return;
-            if (dIndex === sBuffer.length - 1) {
-                pushTBuffer(deserializer(sBuffer.slice(0, dIndex)));
-                sBuffer = '';
-                return;
-            }
-            do {
-                pushTBuffer(deserializer(sBuffer.slice(0, dIndex)));
-                sBuffer = sBuffer.slice(dIndex + 1);
-                dIndex = sBuffer.indexOf(delimiter);
-            } while (dIndex < sBuffer.length - 1 && dIndex !== -1);
-        });
+async function initialRun(sorter, input, tempDir, deserializer, serializer, delimiter, lastDelimiter, maxHeap, order, sortBy) {
+    const files = [];
+    let fileIndex = 0;
+    let sBuffer = '';
+    let tBuffer = [];
+    const writeTBuffer = () => {
+        tBuffer = sorter(tBuffer)[order](sortBy);
+        const fpath = path_1.default.resolve(tempDir, `es_${fileIndex}.tmp`);
+        let mergedBuffer = '';
+        let v;
+        while ((v = tBuffer.shift()) !== undefined) {
+            mergedBuffer += `${serializer(v)}${delimiter}`;
+        }
+        fs_1.default.writeFileSync(fpath, mergedBuffer);
+        files.push(fpath);
+        fileIndex++;
+    };
+    const pushTBuffer = (v) => {
+        tBuffer.push(v);
+        if (tBuffer.length === maxHeap)
+            writeTBuffer();
+    };
+    input.on('data', (chunk) => {
+        if (typeof chunk !== 'string')
+            chunk = chunk.toString();
+        sBuffer += chunk;
+        chunk = null;
+        let dIndex = sBuffer.indexOf(delimiter);
+        if (dIndex === -1)
+            return;
+        if (dIndex === sBuffer.length - 1) {
+            pushTBuffer(deserializer(sBuffer.slice(0, dIndex)));
+            sBuffer = '';
+            return;
+        }
+        do {
+            pushTBuffer(deserializer(sBuffer.slice(0, dIndex)));
+            sBuffer = sBuffer.slice(dIndex + 1);
+            dIndex = sBuffer.indexOf(delimiter);
+        } while (dIndex < sBuffer.length - 1 && dIndex !== -1);
+    });
+    return await new Promise((resolve, reject) => {
         input.on('end', () => {
             if (sBuffer.length > 0) {
                 if (!lastDelimiter) {
@@ -108,10 +120,10 @@ class FileParser {
             const dIndex = this.buffer.indexOf(this.delimiter);
             if (dIndex === -1)
                 continue;
-            fh.close();
+            await fh.close();
             return this.deserialzer(this.checkBuffer());
         }
-        fh.close();
+        await fh.close();
         return EOF;
     }
 }
@@ -233,7 +245,7 @@ async function mergeSortedFiles(sortComparer, filesPath, output, deserializer, s
         };
         heapify(harr, 0, harr.length, comparer);
     }
-    output.end();
+    await new Promise(resolve => output.end(resolve));
 }
 async function externalSort(opts, order, sortBy) {
     if (typeof opts.tempDir !== 'string') {
