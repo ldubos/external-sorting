@@ -19,7 +19,6 @@ async function initialRun<I extends Readable, T>(
 ): Promise<string[]> {
   const files: string[] = [];
   let fileIndex = 0;
-  let chunks = [];
   let sBuffer = '';
   let tBuffer: T[] = [];
 
@@ -46,34 +45,10 @@ async function initialRun<I extends Readable, T>(
     if (tBuffer.length === maxHeap) writeTBuffer();
   };
 
-  input.on('data', (chunk: Buffer) => {
-    if (typeof chunk === 'string') chunk = Buffer.from(chunk);
-    chunks.push(chunk);
+  input.on('data', (chunk: Buffer | string) => {
+    sBuffer += chunk instanceof Buffer ? chunk.toString(encoding) : chunk;
 
-    let dIndex = chunk.indexOf(delimiter);
-    let leftBuffer = null;
-
-    if (dIndex > -1) {
-
-      if (dIndex < chunk.length - 1)
-        chunks.pop();
-
-      const selected = chunk.slice(0, dIndex + 1);
-      leftBuffer = chunk.slice(dIndex + 1, chunk.length);
-
-      chunks.push(selected);
-    }
-
-    sBuffer = Buffer.concat(chunks).toString(encoding);
-
-    if (leftBuffer != null)
-      chunks = [leftBuffer]
-    else
-      chunks = []
-
-    dIndex = sBuffer.indexOf(delimiter);
-
-    if (dIndex === -1) return;
+    let dIndex = sBuffer.indexOf(delimiter);
 
     if (dIndex === sBuffer.length - 1) {
       pushTBuffer(deserializer(sBuffer.slice(0, dIndex)));
@@ -115,9 +90,11 @@ const EOF = Symbol('EOF');
 
 class FileParser<T> {
   private buffer = '';
+  private bbuffer = Buffer.from('');
   private bytesRead = 0;
   private file: string;
   private delimiter: string;
+  private delimiterBytes: number;
   private deserialzer: IDeserializer<T>;
   private encoding: BufferEncoding;
 
@@ -129,6 +106,7 @@ class FileParser<T> {
   ) {
     this.file = file;
     this.delimiter = delimiter;
+    this.delimiterBytes = Buffer.from(this.delimiter).length;
     this.deserialzer = deserialzer;
     this.encoding = encoding;
   }
@@ -163,12 +141,23 @@ class FileParser<T> {
     while (
       (readed = await fh.read(cBuffer, 0, 512, this.bytesRead)).bytesRead > 0
     ) {
-      this.buffer += cBuffer.toString(this.encoding);
+      this.bbuffer = Buffer.concat([this.bbuffer, cBuffer]);
       this.bytesRead += readed.bytesRead;
 
-      const dIndex = this.buffer.indexOf(this.delimiter);
+      const dIndex = this.bbuffer.indexOf(this.delimiter);
 
       if (dIndex === -1) continue;
+
+      this.buffer = this.bbuffer.slice(0, dIndex + 1).toString(this.encoding);
+      this.bbuffer = this.bbuffer.slice(dIndex + 1);
+
+      await fh.close();
+      return this.deserialzer(this.checkBuffer());
+    }
+
+    if (this.bbuffer.length > 0 && this.bbuffer.indexOf(this.delimiter) > -1) {
+      this.buffer = this.bbuffer.toString(this.encoding);
+      this.bbuffer = Buffer.from('')
 
       await fh.close();
       return this.deserialzer(this.checkBuffer());
