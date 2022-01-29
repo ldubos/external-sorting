@@ -26,9 +26,10 @@ const fast_sort_1 = __importDefault(require("fast-sort"));
 const fs_1 = __importStar(require("fs"));
 const os_1 = __importDefault(require("os"));
 const path_1 = __importDefault(require("path"));
-async function initialRun(sorter, input, tempDir, deserializer, serializer, delimiter, lastDelimiter, maxHeap, order, sortBy) {
+async function initialRun(sorter, input, tempDir, deserializer, serializer, delimiter, lastDelimiter, maxHeap, order, sortBy, encoding) {
     const files = [];
     let fileIndex = 0;
+    let chunks = [];
     let sBuffer = '';
     let tBuffer = [];
     const writeTBuffer = () => {
@@ -39,7 +40,7 @@ async function initialRun(sorter, input, tempDir, deserializer, serializer, deli
         while ((v = tBuffer.shift()) !== undefined) {
             mergedBuffer += `${serializer(v)}${delimiter}`;
         }
-        fs_1.default.writeFileSync(fpath, mergedBuffer);
+        fs_1.default.writeFileSync(fpath, mergedBuffer, encoding);
         files.push(fpath);
         fileIndex++;
     };
@@ -49,11 +50,24 @@ async function initialRun(sorter, input, tempDir, deserializer, serializer, deli
             writeTBuffer();
     };
     input.on('data', (chunk) => {
-        if (typeof chunk !== 'string')
-            chunk = chunk.toString();
-        sBuffer += chunk;
-        chunk = null;
-        let dIndex = sBuffer.indexOf(delimiter);
+        if (typeof chunk === 'string')
+            chunk = Buffer.from(chunk);
+        chunks.push(chunk);
+        let dIndex = chunk.indexOf(delimiter);
+        let leftBuffer = null;
+        if (dIndex > -1) {
+            if (dIndex < chunk.length - 1)
+                chunks.pop();
+            const selected = chunk.slice(0, dIndex + 1);
+            leftBuffer = chunk.slice(dIndex + 1, chunk.length);
+            chunks.push(selected);
+        }
+        sBuffer = Buffer.concat(chunks).toString(encoding);
+        if (leftBuffer != null)
+            chunks = [leftBuffer];
+        else
+            chunks = [];
+        dIndex = sBuffer.indexOf(delimiter);
         if (dIndex === -1)
             return;
         if (dIndex === sBuffer.length - 1) {
@@ -89,12 +103,13 @@ async function initialRun(sorter, input, tempDir, deserializer, serializer, deli
 }
 const EOF = Symbol('EOF');
 class FileParser {
-    constructor(file, delimiter, deserialzer) {
+    constructor(file, delimiter, deserialzer, encoding) {
         this.buffer = '';
         this.bytesRead = 0;
         this.file = file;
         this.delimiter = delimiter;
         this.deserialzer = deserialzer;
+        this.encoding = encoding;
     }
     checkBuffer() {
         const dIndex = this.buffer.indexOf(this.delimiter);
@@ -115,7 +130,7 @@ class FileParser {
         const cBuffer = Buffer.alloc(512);
         let readed;
         while ((readed = await fh.read(cBuffer, 0, 512, this.bytesRead)).bytesRead > 0) {
-            this.buffer += cBuffer.toString();
+            this.buffer += cBuffer.toString(this.encoding);
             this.bytesRead += readed.bytesRead;
             const dIndex = this.buffer.indexOf(this.delimiter);
             if (dIndex === -1)
@@ -209,11 +224,11 @@ function constructHeap(harr, comparer) {
     while (i >= 0)
         heapify(harr, i--, heapSize, comparer);
 }
-async function mergeSortedFiles(sortComparer, filesPath, output, deserializer, serializer, delimiter, order, sortBy) {
+async function mergeSortedFiles(sortComparer, filesPath, output, deserializer, serializer, delimiter, order, sortBy, encoding) {
     const flen = filesPath.length;
     if (flen === 1) {
         await new Promise((resolve, reject) => {
-            const rs = fs_1.default.createReadStream(filesPath[0]);
+            const rs = fs_1.default.createReadStream(filesPath[0], encoding);
             rs.on('open', () => {
                 rs.pipe(output);
             });
@@ -228,7 +243,7 @@ async function mergeSortedFiles(sortComparer, filesPath, output, deserializer, s
         return;
     }
     const harr = [];
-    const files = filesPath.map((file) => new FileParser(file, delimiter, deserializer));
+    const files = filesPath.map((file) => new FileParser(file, delimiter, deserializer, encoding));
     for (let i = 0; i < flen; i++) {
         harr.push({ item: await files[i].gnc(), file: files[i] });
     }
@@ -238,21 +253,21 @@ async function mergeSortedFiles(sortComparer, filesPath, output, deserializer, s
         const first = harr[0];
         if (!first || first.item === EOF)
             break;
-        output.write(`${serializer(first.item)}${delimiter}`);
+        await new Promise((resolve) => output.write(`${serializer(first.item)}${delimiter}`, resolve));
         harr[0] = {
             item: await first.file.gnc(),
             file: first.file
         };
         heapify(harr, 0, harr.length, comparer);
     }
-    await new Promise(resolve => output.end(resolve));
+    await new Promise((resolve) => output.end(resolve));
 }
 async function externalSort(opts, order, sortBy) {
     if (typeof opts.tempDir !== 'string') {
         opts.tempDir = path_1.default.resolve(os_1.default.tmpdir(), await fs_1.promises.mkdtemp('external-sorting'));
     }
-    const files = await initialRun(fast_sort_1.default.createNewInstance({ comparer: opts.comparer }), opts.input, opts.tempDir, opts.deserializer, opts.serializer, opts.delimiter, opts.lastDelimiter, opts.maxHeap, order, sortBy);
-    await mergeSortedFiles(opts.comparer, files, opts.output, opts.deserializer, opts.serializer, opts.delimiter, order, sortBy);
+    const files = await initialRun(fast_sort_1.default.createNewInstance({ comparer: opts.comparer }), opts.input, opts.tempDir, opts.deserializer, opts.serializer, opts.delimiter, opts.lastDelimiter, opts.maxHeap, order, sortBy, opts.encoding);
+    await mergeSortedFiles(opts.comparer, files, opts.output, opts.deserializer, opts.serializer, opts.delimiter, order, sortBy, opts.encoding);
     await Promise.all(files.map((file) => fs_1.promises.unlink(file)));
 }
 /**
@@ -326,6 +341,9 @@ function createSortInstance(opts) {
     }
     if (typeof opts.comparer !== 'function') {
         opts.comparer = defaultComparer;
+    }
+    if (typeof opts.encoding !== 'string') {
+        opts.encoding = 'utf8';
     }
     const sortInstance = {
         asc: (sortBy) => externalSort(opts, 'asc', sortBy),

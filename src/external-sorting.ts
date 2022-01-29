@@ -14,10 +14,12 @@ async function initialRun<I extends Readable, T>(
   lastDelimiter: boolean,
   maxHeap: number,
   order: Order,
-  sortBy: ISortBy<T> | ISortBy<T>[]
+  sortBy: ISortBy<T> | ISortBy<T>[],
+  encoding: BufferEncoding
 ): Promise<string[]> {
   const files: string[] = [];
   let fileIndex = 0;
+  let chunks = [];
   let sBuffer = '';
   let tBuffer: T[] = [];
 
@@ -25,14 +27,14 @@ async function initialRun<I extends Readable, T>(
     tBuffer = sorter(tBuffer)[order](sortBy);
     const fpath = path.resolve(tempDir, `es_${fileIndex}.tmp`);
 
-    let mergedBuffer = ''
+    let mergedBuffer = '';
     let v: T;
 
     while ((v = tBuffer.shift()) !== undefined) {
       mergedBuffer += `${serializer(v)}${delimiter}`;
     }
 
-    fs.writeFileSync(fpath, mergedBuffer)
+    fs.writeFileSync(fpath, mergedBuffer, encoding);
 
     files.push(fpath);
     fileIndex++;
@@ -44,13 +46,32 @@ async function initialRun<I extends Readable, T>(
     if (tBuffer.length === maxHeap) writeTBuffer();
   };
 
-  input.on('data', (chunk: Buffer | string) => {
-    if (typeof chunk !== 'string') chunk = chunk.toString();
+  input.on('data', (chunk: Buffer) => {
+    if (typeof chunk === 'string') chunk = Buffer.from(chunk);
+    chunks.push(chunk);
 
-    sBuffer += chunk;
-    chunk = null;
+    let dIndex = chunk.indexOf(delimiter);
+    let leftBuffer = null;
 
-    let dIndex = sBuffer.indexOf(delimiter);
+    if (dIndex > -1) {
+
+      if (dIndex < chunk.length - 1)
+        chunks.pop();
+
+      const selected = chunk.slice(0, dIndex + 1);
+      leftBuffer = chunk.slice(dIndex + 1, chunk.length);
+
+      chunks.push(selected);
+    }
+
+    sBuffer = Buffer.concat(chunks).toString(encoding);
+
+    if (leftBuffer != null)
+      chunks = [leftBuffer]
+    else
+      chunks = []
+
+    dIndex = sBuffer.indexOf(delimiter);
 
     if (dIndex === -1) return;
 
@@ -98,11 +119,18 @@ class FileParser<T> {
   private file: string;
   private delimiter: string;
   private deserialzer: IDeserializer<T>;
+  private encoding: BufferEncoding;
 
-  constructor(file: string, delimiter: string, deserialzer: IDeserializer<T>) {
+  constructor(
+    file: string,
+    delimiter: string,
+    deserialzer: IDeserializer<T>,
+    encoding: BufferEncoding
+  ) {
     this.file = file;
     this.delimiter = delimiter;
     this.deserialzer = deserialzer;
+    this.encoding = encoding;
   }
 
   private checkBuffer(): string {
@@ -135,7 +163,7 @@ class FileParser<T> {
     while (
       (readed = await fh.read(cBuffer, 0, 512, this.bytesRead)).bytesRead > 0
     ) {
-      this.buffer += cBuffer.toString();
+      this.buffer += cBuffer.toString(this.encoding);
       this.bytesRead += readed.bytesRead;
 
       const dIndex = this.buffer.indexOf(this.delimiter);
@@ -276,13 +304,14 @@ async function mergeSortedFiles<O extends NodeJS.WritableStream, T>(
   serializer: ISerializer<T>,
   delimiter: string,
   order: Order,
-  sortBy: ISortBy<T> | ISortBy<T>[]
+  sortBy: ISortBy<T> | ISortBy<T>[],
+  encoding: BufferEncoding
 ): Promise<void> {
   const flen = filesPath.length;
 
   if (flen === 1) {
     await new Promise<void>((resolve, reject) => {
-      const rs = fs.createReadStream(filesPath[0]);
+      const rs = fs.createReadStream(filesPath[0], encoding);
 
       rs.on('open', () => {
         rs.pipe(output);
@@ -303,7 +332,7 @@ async function mergeSortedFiles<O extends NodeJS.WritableStream, T>(
 
   const harr: IMinHeapNode<T>[] = [];
   const files: FileParser<T>[] = filesPath.map(
-    (file) => new FileParser(file, delimiter, deserializer)
+    (file) => new FileParser(file, delimiter, deserializer, encoding)
   );
 
   for (let i = 0; i < flen; i++) {
@@ -319,7 +348,9 @@ async function mergeSortedFiles<O extends NodeJS.WritableStream, T>(
 
     if (!first || first.item === EOF) break;
 
-    output.write(`${serializer(first.item)}${delimiter}`);
+    await new Promise((resolve) =>
+      output.write(`${serializer(first.item as any)}${delimiter}`, resolve)
+    );
 
     harr[0] = {
       item: await first.file.gnc(),
@@ -329,7 +360,7 @@ async function mergeSortedFiles<O extends NodeJS.WritableStream, T>(
     heapify(harr, 0, harr.length, comparer);
   }
 
-  await new Promise<void>(resolve => output.end(resolve));
+  await new Promise<void>((resolve) => output.end(resolve));
 }
 
 async function externalSort<I extends Readable, O extends Writable, T>(
@@ -354,7 +385,8 @@ async function externalSort<I extends Readable, O extends Writable, T>(
     opts.lastDelimiter,
     opts.maxHeap,
     order,
-    sortBy
+    sortBy,
+    opts.encoding
   );
 
   await mergeSortedFiles(
@@ -365,7 +397,8 @@ async function externalSort<I extends Readable, O extends Writable, T>(
     opts.serializer,
     opts.delimiter,
     order,
-    sortBy
+    sortBy,
+    opts.encoding
   );
 
   await Promise.all(files.map((file) => fsp.unlink(file)));
@@ -412,6 +445,7 @@ export interface ISortOptions<I extends Readable, O extends Writable, T> {
    */
   maxHeap?: number;
   comparer?: ISortComparer;
+  encoding?: BufferEncoding;
 }
 
 /**
@@ -492,6 +526,10 @@ function createSortInstance<I extends Readable, O extends Writable, T>(
 
   if (typeof opts.comparer !== 'function') {
     opts.comparer = defaultComparer as any;
+  }
+
+  if (typeof opts.encoding !== 'string') {
+    opts.encoding = 'utf8';
   }
 
   const sortInstance: ISortInstance<T> = {

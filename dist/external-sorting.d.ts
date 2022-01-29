@@ -41,6 +41,7 @@ export interface ISortOptions<I extends Readable, O extends Writable, T> {
      */
     maxHeap?: number;
     comparer?: ISortComparer;
+    encoding?: BufferEncoding;
 }
 /**
  * Create new instance of external-sorting.
