@@ -1,6 +1,6 @@
 {
   "name": "external-sorting",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "description": "an external sorting algorithm implementation for NodeJS",
   "main": "dist/external-sorting.js",
   "repository": "git@github.com:ldubos/external-sorting.git",
